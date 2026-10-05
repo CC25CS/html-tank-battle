@@ -1,0 +1,473 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#09130f">
+  <meta name="description" content="一款无需安装、支持键盘与触屏操作的复古 HTML5 坦克大战。">
+  <title>钢铁防线 · HTML 坦克大战</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%2309130f'/%3E%3Cpath d='M14 20h8v-7h20v7h8v31H14z' fill='%23a9d454'/%3E%3Cpath d='M27 8h10v22H27z' fill='%23f0c44c'/%3E%3Ccircle cx='32' cy='36' r='8' fill='%2309130f'/%3E%3C/svg%3E">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #06100c;
+      --panel: #0d1c15;
+      --panel-2: #13251c;
+      --grid: rgba(157, 197, 83, .09);
+      --ink: #edf6dd;
+      --muted: #91a58c;
+      --lime: #b7df63;
+      --yellow: #f4c64e;
+      --red: #e8654f;
+      --line: #2b4233;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body { min-height: 100%; }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+      color: var(--ink);
+      background:
+        linear-gradient(var(--grid) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid) 1px, transparent 1px),
+        radial-gradient(circle at 50% 0%, #193825 0, var(--bg) 55%);
+      background-size: 32px 32px, 32px 32px, 100% 100%;
+      display: grid;
+      place-items: center;
+      padding: clamp(12px, 3vw, 36px);
+      overscroll-behavior: none;
+    }
+
+    button { font: inherit; }
+
+    .shell {
+      width: min(1120px, 100%);
+      border: 1px solid #34523c;
+      background: rgba(7, 16, 12, .94);
+      box-shadow: 0 24px 80px rgba(0, 0, 0, .55), inset 0 1px rgba(255, 255, 255, .04);
+    }
+
+    .topbar {
+      min-height: 58px;
+      padding: 12px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(90deg, rgba(183, 223, 99, .09), transparent 48%);
+    }
+
+    .brand { display: flex; align-items: center; gap: 12px; }
+
+    .mark {
+      width: 34px;
+      height: 34px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--lime);
+      color: var(--lime);
+      font-weight: 900;
+      transform: rotate(45deg);
+    }
+
+    .mark span { transform: rotate(-45deg); }
+    h1 { margin: 0; font-size: clamp(1.05rem, 2.5vw, 1.35rem); letter-spacing: .15em; }
+    .kicker { color: var(--lime); font: 700 .72rem/1 ui-monospace, monospace; letter-spacing: .14em; margin-bottom: 5px; }
+    .top-status { color: var(--muted); font: .8rem/1.4 ui-monospace, monospace; text-align: right; }
+    .top-status b { color: var(--lime); font-weight: 700; }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 250px;
+      gap: 1px;
+      background: var(--line);
+    }
+
+    .game-wrap {
+      position: relative;
+      min-width: 0;
+      background: #050906;
+      display: grid;
+      place-items: center;
+      padding: 18px;
+    }
+
+    canvas {
+      display: block;
+      width: min(100%, 780px);
+      aspect-ratio: 13 / 10;
+      background: #07100c;
+      border: 1px solid #253b2c;
+      image-rendering: pixelated;
+      touch-action: none;
+    }
+
+    .screen {
+      position: absolute;
+      inset: 18px;
+      display: grid;
+      place-items: center;
+      background: rgba(3, 8, 5, .82);
+      backdrop-filter: blur(3px);
+      text-align: center;
+      padding: 24px;
+      transition: opacity .18s ease;
+    }
+
+    .screen.hidden { opacity: 0; pointer-events: none; }
+    .screen-card { max-width: 430px; }
+    .screen .eyebrow { color: var(--yellow); font: 800 .75rem/1 ui-monospace, monospace; letter-spacing: .2em; }
+    .screen h2 { margin: 12px 0 10px; font-size: clamp(2rem, 7vw, 4.5rem); line-height: .95; letter-spacing: .06em; }
+    .screen p { margin: 0 auto 24px; color: #b9c7b3; line-height: 1.7; }
+
+    .primary {
+      border: 0;
+      color: #10180e;
+      background: var(--yellow);
+      padding: 12px 28px;
+      min-height: 46px;
+      font-weight: 900;
+      letter-spacing: .1em;
+      cursor: pointer;
+      box-shadow: 4px 4px 0 #765b19;
+    }
+
+    .primary:hover { filter: brightness(1.1); }
+    .primary:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 #765b19; }
+    .primary:focus-visible, .control:focus-visible { outline: 3px solid white; outline-offset: 3px; }
+
+    aside { background: var(--panel); padding: 18px; }
+    .hud-label { color: var(--muted); font: 700 .7rem/1 ui-monospace, monospace; letter-spacing: .15em; }
+    .score { margin: 6px 0 18px; font: 800 2rem/1 ui-monospace, monospace; color: var(--yellow); }
+    .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 18px; }
+    .stat { background: var(--panel-2); border-left: 2px solid var(--lime); padding: 10px; }
+    .stat b { display: block; margin-top: 5px; font: 800 1.15rem/1 ui-monospace, monospace; }
+    .radar { aspect-ratio: 1; border: 1px solid #35513d; position: relative; overflow: hidden; margin: 10px 0 18px; background: repeating-radial-gradient(circle, transparent 0 18%, rgba(183, 223, 99, .12) 19% 20%); }
+    .radar::before, .radar::after { content: ""; position: absolute; background: rgba(183, 223, 99, .22); }
+    .radar::before { width: 1px; height: 100%; left: 50%; }
+    .radar::after { height: 1px; width: 100%; top: 50%; }
+    #radarSweep { position: absolute; inset: 50% 50% 0 50%; transform-origin: 0 0; background: conic-gradient(from -18deg, rgba(183, 223, 99, .35), transparent 38deg); animation: sweep 3s linear infinite; }
+    @keyframes sweep { to { transform: rotate(360deg); } }
+    #radarDots { position: absolute; inset: 0; }
+    .dot { position: absolute; width: 6px; height: 6px; border-radius: 50%; background: var(--red); box-shadow: 0 0 8px var(--red); transform: translate(-50%, -50%); }
+
+    .help { border-top: 1px solid var(--line); padding-top: 14px; color: var(--muted); font-size: .82rem; line-height: 1.65; }
+    .key { display: inline-grid; min-width: 24px; height: 24px; place-items: center; padding: 0 6px; margin: 2px; color: var(--ink); border: 1px solid #48604f; background: #17251c; font: 700 .72rem/1 ui-monospace, monospace; }
+
+    .mobile-controls { display: none; padding: 14px; border-top: 1px solid var(--line); background: #0a1710; align-items: center; justify-content: space-between; gap: 24px; }
+    .dpad { display: grid; grid-template: repeat(3, 46px) / repeat(3, 46px); gap: 4px; }
+    .control { border: 1px solid #49634f; background: #14251a; color: var(--ink); min-width: 46px; min-height: 46px; touch-action: none; user-select: none; cursor: pointer; }
+    .control.active { color: #17200f; background: var(--lime); }
+    .up { grid-area: 1 / 2; } .left { grid-area: 2 / 1; } .down { grid-area: 2 / 2; } .right { grid-area: 2 / 3; }
+    .fire { width: 78px; height: 78px; border-radius: 50%; border: 3px solid #6e351f; background: #b6412f; font-weight: 900; box-shadow: inset 0 -6px rgba(0,0,0,.2); }
+
+    footer { padding: 10px 18px; color: #657968; font: .7rem/1.4 ui-monospace, monospace; border-top: 1px solid var(--line); display: flex; justify-content: space-between; }
+
+    @media (max-width: 820px) {
+      body { padding: 0; display: block; }
+      .shell { min-height: 100dvh; border: 0; }
+      .layout { display: block; }
+      aside { display: grid; grid-template-columns: 1fr 1.2fr; gap: 12px 18px; padding: 12px 16px; }
+      aside > .hud-label:first-child, .score { grid-column: 1; }
+      .score { margin-bottom: 0; }
+      .stats { grid-column: 2; grid-row: 1 / 3; margin: 0; align-self: stretch; }
+      .radar, aside > .hud-label:nth-of-type(2), .help { display: none; }
+      .game-wrap { padding: 8px; }
+      .screen { inset: 8px; }
+      .mobile-controls { display: flex; }
+      footer { display: none; }
+    }
+
+    @media (max-height: 700px) and (pointer: coarse) {
+      .topbar { min-height: 48px; padding: 8px 14px; }
+      .game-wrap { max-width: min(100vw, calc((100dvh - 236px) * 1.3)); margin: auto; }
+      aside { padding-block: 7px; }
+      .mobile-controls { padding-block: 8px; }
+      .dpad { grid-template: repeat(2, 40px) / repeat(3, 40px); }
+      .control { min-width: 40px; min-height: 40px; }
+      .fire { width: 68px; height: 68px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) { #radarSweep { animation: none; } }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="mark" aria-hidden="true"><span>◆</span></div>
+        <div><div class="kicker">FIELD OPS / 01</div><h1>钢铁防线</h1></div>
+      </div>
+      <div class="top-status">基地信号<br><b id="baseSignal">稳定</b></div>
+    </header>
+
+    <section class="layout">
+      <div class="game-wrap">
+        <canvas id="game" width="780" height="600" aria-label="坦克大战游戏区域"></canvas>
+        <div class="screen" id="screen">
+          <div class="screen-card">
+            <div class="eyebrow" id="screenEyebrow">MISSION READY</div>
+            <h2 id="screenTitle">守住基地</h2>
+            <p id="screenText">击退来袭敌军。砖墙可以被炮弹摧毁，钢墙坚不可摧。</p>
+            <button class="primary" id="startBtn">开始任务</button>
+          </div>
+        </div>
+      </div>
+
+      <aside aria-label="任务状态">
+        <div class="hud-label">SCORE / 得分</div>
+        <div class="score" id="score">000000</div>
+        <div class="stats">
+          <div class="stat"><span class="hud-label">生命</span><b id="lives">3</b></div>
+          <div class="stat"><span class="hud-label">关卡</span><b id="level">01</b></div>
+          <div class="stat"><span class="hud-label">敌军</span><b id="remaining">12</b></div>
+          <div class="stat"><span class="hud-label">战况</span><b id="stateText">待命</b></div>
+        </div>
+        <div class="hud-label">TACTICAL RADAR</div>
+        <div class="radar" aria-hidden="true"><div id="radarSweep"></div><div id="radarDots"></div></div>
+        <div class="help">
+          移动 <span class="key">WASD</span> / <span class="key">方向键</span><br>
+          开火 <span class="key">空格</span>　暂停 <span class="key">P</span><br>
+          重新开始 <span class="key">R</span>
+        </div>
+      </aside>
+    </section>
+
+    <section class="mobile-controls" aria-label="触屏控制">
+      <div class="dpad">
+        <button class="control up" data-key="ArrowUp" aria-label="向上">▲</button>
+        <button class="control left" data-key="ArrowLeft" aria-label="向左">◀</button>
+        <button class="control down" data-key="ArrowDown" aria-label="向下">▼</button>
+        <button class="control right" data-key="ArrowRight" aria-label="向右">▶</button>
+      </div>
+      <button class="control fire" data-key="Space" aria-label="开火">开火</button>
+    </section>
+
+    <footer><span>HTML5 CANVAS // OFFLINE READY</span><span>保卫鹰巢 · 消灭全部敌军</span></footer>
+  </main>
+
+  <script>
+    (() => {
+      'use strict';
+      const canvas = document.getElementById('game');
+      const ctx = canvas.getContext('2d');
+      const ui = Object.fromEntries(['screen','screenEyebrow','screenTitle','screenText','startBtn','score','lives','level','remaining','stateText','baseSignal','radarDots'].map(id => [id, document.getElementById(id)]));
+      const W = canvas.width, H = canvas.height, TILE = 30;
+      const keys = new Set();
+      let running = false, paused = false, gameOver = false, last = 0, shake = 0;
+      let score = 0, lives = 3, level = 1, kills = 0, spawnTimer = 0, waveCount = 12, baseAlive = true;
+      let player, enemies = [], bullets = [], particles = [], walls = [];
+
+      const COLORS = { player:'#b7df63', enemy:'#e8654f', enemy2:'#f4c64e', bullet:'#fff2bb' };
+      const DIRS = { up:{x:0,y:-1}, down:{x:0,y:1}, left:{x:-1,y:0}, right:{x:1,y:0} };
+      const keyDir = () => keys.has('ArrowUp')||keys.has('KeyW') ? 'up' : keys.has('ArrowDown')||keys.has('KeyS') ? 'down' : keys.has('ArrowLeft')||keys.has('KeyA') ? 'left' : keys.has('ArrowRight')||keys.has('KeyD') ? 'right' : null;
+
+      function rects(a,b,pad=0){ return a.x+pad < b.x+b.w && a.x+a.w-pad > b.x && a.y+pad < b.y+b.h && a.y+a.h-pad > b.y; }
+      function clamp(v,min,max){ return Math.max(min, Math.min(max,v)); }
+      function pad(n,len=2){ return String(n).padStart(len,'0'); }
+      function rand(a,b){ return a + Math.random()*(b-a); }
+
+      function buildMap(){
+        walls = [];
+        const add = (gx,gy,type='brick',gw=1,gh=1) => walls.push({x:gx*TILE,y:gy*TILE,w:gw*TILE,h:gh*TILE,type,hp:type==='brick'?2:999});
+        [[2,3],[3,3],[8,2],[9,2],[15,3],[16,3],[22,3],[23,3],
+         [5,6],[6,6],[10,6],[11,6],[14,6],[15,6],[19,6],[20,6],
+         [2,10],[3,10],[7,9],[8,9],[17,9],[18,9],[22,10],[23,10],
+         [5,13],[6,13],[10,13],[15,13],[19,13],[20,13],
+         [3,16],[4,16],[8,16],[9,16],[16,16],[17,16],[21,16],[22,16]].forEach(([x,y])=>add(x,y));
+        [[12,4],[13,4],[1,8],[24,8],[12,11],[13,11]].forEach(([x,y])=>add(x,y,'steel'));
+        [[11,8],[12,8],[13,8],[14,8]].forEach(([x,y])=>add(x,y,'water'));
+        add(11,18); add(11,19); add(14,18); add(14,19); add(12,18); add(13,18);
+      }
+
+      function reset(full=true){
+        if(full){ score=0; lives=3; level=1; }
+        kills=0; waveCount=10+level*2; spawnTimer=0; baseAlive=true; gameOver=false; paused=false;
+        enemies=[]; bullets=[]; particles=[]; buildMap();
+        player = makeTank(W/2-13, H-54, 'up', true);
+        updateUI();
+      }
+
+      function makeTank(x,y,dir,isPlayer=false){
+        return {x,y,w:26,h:26,dir,isPlayer,speed:isPlayer?145:65+level*4,shootCd:0,turnTimer:rand(.5,1.8),hp:isPlayer?1:(Math.random()<.22?2:1),flash:0};
+      }
+
+      function canMove(t,nx,ny){
+        const r={x:nx,y:ny,w:t.w,h:t.h};
+        if(nx<2||ny<2||nx+t.w>W-2||ny+t.h>H-2) return false;
+        if(walls.some(w=>rects(r,w,3))) return false;
+        const tanks=[player,...enemies].filter(o=>o&&o!==t);
+        return !tanks.some(o=>rects(r,o,4));
+      }
+
+      function moveTank(t,dir,dt){
+        t.dir=dir; const d=DIRS[dir]; const step=t.speed*dt;
+        const nx=t.x+d.x*step, ny=t.y+d.y*step;
+        if(canMove(t,nx,ny)){ t.x=nx; t.y=ny; return true; }
+        return false;
+      }
+
+      function shoot(t){
+        if(t.shootCd>0 || bullets.filter(b=>b.owner===t).length >= (t.isPlayer?2:1)) return;
+        const d=DIRS[t.dir];
+        bullets.push({x:t.x+t.w/2-3+d.x*17,y:t.y+t.h/2-3+d.y*17,w:6,h:6,vx:d.x*(t.isPlayer?390:260),vy:d.y*(t.isPlayer?390:260),owner:t,enemy:!t.isPlayer});
+        t.shootCd=t.isPlayer?.22:rand(.8,1.6);
+        burst(t.x+t.w/2+d.x*18,t.y+t.h/2+d.y*18,'#fff2bb',3,45);
+      }
+
+      function spawnEnemy(){
+        if(enemies.length>=5 || kills+enemies.length>=waveCount) return;
+        const spots=[22, W/2-13, W-48];
+        const x=spots[Math.floor(Math.random()*spots.length)];
+        const temp={x,y:20,w:26,h:26};
+        if(!enemies.some(e=>rects(temp,e)) && !rects(temp,player)) enemies.push(makeTank(x,20,'down'));
+      }
+
+      function burst(x,y,color,count=10,speed=110){
+        for(let i=0;i<count;i++){ const a=Math.random()*Math.PI*2,s=rand(speed*.35,speed); particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:rand(.25,.7),max:.7,color,size:rand(2,5)}); }
+      }
+
+      function hitTank(t, bullet){
+        t.hp--; t.flash=.12; burst(t.x+t.w/2,t.y+t.h/2,t.isPlayer?COLORS.player:COLORS.enemy,14,150); shake=7;
+        if(t.hp>0) return;
+        if(t.isPlayer){
+          lives--; bullets=bullets.filter(b=>b.owner!==t);
+          if(lives<=0){ endGame(false,'你的坦克已损毁'); }
+          else { player=makeTank(W/2-13,H-54,'up',true); }
+        } else {
+          enemies=enemies.filter(e=>e!==t); kills++; score+=t.hp===0?100:200;
+          if(kills>=waveCount && enemies.length===0) nextLevel();
+        }
+        updateUI();
+      }
+
+      function nextLevel(){
+        running=false; level++; score+=500; updateUI();
+        showScreen('区域肃清','进入第 '+pad(level)+' 关','防线已推进。下一波敌军更快、更凶猛。','继续任务',()=>{ reset(false); hideScreen(); running=true; last=performance.now(); requestAnimationFrame(loop); });
+      }
+
+      function endGame(win,reason){
+        running=false; gameOver=true; ui.baseSignal.textContent='失联';
+        showScreen(win?'任务完成':'防线失守',win?'胜利':reason,'最终得分 '+pad(score,6)+'，按 R 或点击下方按钮重新部署。','重新部署',startGame);
+      }
+
+      function showScreen(eyebrow,title,text,button,action){
+        ui.screenEyebrow.textContent=eyebrow.toUpperCase(); ui.screenTitle.textContent=title; ui.screenText.textContent=text; ui.startBtn.textContent=button; ui.startBtn.onclick=action; ui.screen.classList.remove('hidden');
+      }
+      function hideScreen(){ ui.screen.classList.add('hidden'); }
+
+      function startGame(){
+        reset(true); hideScreen(); running=true; last=performance.now(); requestAnimationFrame(loop);
+      }
+
+      function togglePause(){
+        if(gameOver||!player) return;
+        paused=!paused;
+        if(paused){ running=false; showScreen('MISSION PAUSED','任务暂停','战场已冻结。调整状态后继续。','继续',()=>{ paused=false; hideScreen(); running=true; last=performance.now(); requestAnimationFrame(loop); }); }
+        else { hideScreen(); running=true; last=performance.now(); requestAnimationFrame(loop); }
+        updateUI();
+      }
+
+      function update(dt){
+        if(!player) return;
+        player.shootCd=Math.max(0,player.shootCd-dt); player.flash=Math.max(0,player.flash-dt);
+        const d=keyDir(); if(d) moveTank(player,d,dt);
+        if(keys.has('Space')) shoot(player);
+        spawnTimer-=dt; if(spawnTimer<=0){ spawnEnemy(); spawnTimer=rand(1.3,2.4); }
+
+        enemies.forEach(e=>{
+          e.shootCd=Math.max(0,e.shootCd-dt); e.flash=Math.max(0,e.flash-dt); e.turnTimer-=dt;
+          if(e.turnTimer<=0){
+            const options=['down','left','right','up'];
+            if(Math.random()<.32) e.dir=Math.abs((player.x-e.x))>Math.abs((player.y-e.y))?(player.x<e.x?'left':'right'):(player.y<e.y?'up':'down');
+            else e.dir=options[Math.floor(Math.random()*options.length)];
+            e.turnTimer=rand(.45,1.5);
+          }
+          if(!moveTank(e,e.dir,dt)){ e.turnTimer=0; }
+          const aligned=Math.abs((e.x+13)-(player.x+13))<18 || Math.abs((e.y+13)-(player.y+13))<18;
+          if(aligned || Math.random()<.012) shoot(e);
+        });
+
+        for(let i=bullets.length-1;i>=0;i--){
+          const b=bullets[i]; b.x+=b.vx*dt; b.y+=b.vy*dt;
+          if(b.x<0||b.y<0||b.x>W||b.y>H){ bullets.splice(i,1); continue; }
+          const wi=walls.findIndex(w=>w.type!=='water'&&rects(b,w));
+          if(wi>=0){
+            const w=walls[wi]; if(w.type==='brick'){ w.hp--; if(w.hp<=0) walls.splice(wi,1); }
+            burst(b.x,b.y,w.type==='steel'?'#a7b4aa':'#c5733b',5,80); bullets.splice(i,1); continue;
+          }
+          const base={x:12*TILE,y:19*TILE,w:2*TILE,h:TILE};
+          if(baseAlive&&rects(b,base)){ baseAlive=false; burst(W/2,H-18,'#f4c64e',35,210); bullets.splice(i,1); endGame(false,'基地已被摧毁'); break; }
+          const targets=b.enemy?[player]:enemies;
+          const target=targets.find(t=>t&&rects(b,t,2));
+          if(target){ bullets.splice(i,1); hitTank(target,b); continue; }
+          const other=bullets.find((o,j)=>j!==i&&o.enemy!==b.enemy&&rects(b,o));
+          if(other){ const oi=bullets.indexOf(other); if(oi>=0) bullets.splice(oi,1); if(i<bullets.length) bullets.splice(i,1); burst(b.x,b.y,'#ffffff',5,60); }
+        }
+
+        particles.forEach(p=>{p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=.96;p.vy*=.96;p.life-=dt;});
+        particles=particles.filter(p=>p.life>0); shake=Math.max(0,shake-28*dt); updateUI(false);
+      }
+
+      function drawTank(t){
+        const x=t.x+t.w/2,y=t.y+t.h/2,c=t.isPlayer?COLORS.player:(t.hp>1?COLORS.enemy2:COLORS.enemy);
+        ctx.save(); ctx.translate(x,y); ctx.rotate({up:0,right:Math.PI/2,down:Math.PI,left:-Math.PI/2}[t.dir]);
+        ctx.fillStyle='#151b16'; ctx.fillRect(-13,-13,6,26); ctx.fillRect(7,-13,6,26);
+        ctx.fillStyle=t.flash>0?'#fff':c; ctx.fillRect(-8,-11,16,22); ctx.fillRect(-4,-15,8,17);
+        ctx.fillStyle='#273228'; ctx.fillRect(-5,-5,10,10); ctx.fillStyle='rgba(255,255,255,.35)'; ctx.fillRect(-6,-9,3,3);
+        ctx.restore();
+      }
+
+      function draw(){
+        ctx.save(); if(shake) ctx.translate(rand(-shake,shake),rand(-shake,shake));
+        ctx.fillStyle='#07100c'; ctx.fillRect(0,0,W,H);
+        ctx.strokeStyle='rgba(183,223,99,.045)'; ctx.lineWidth=1;
+        for(let x=0;x<W;x+=TILE){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+        for(let y=0;y<H;y+=TILE){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+
+        walls.forEach(w=>{
+          if(w.type==='brick'){
+            ctx.fillStyle=w.hp===2?'#8c4d2d':'#5e3524';ctx.fillRect(w.x+1,w.y+1,w.w-2,w.h-2);ctx.strokeStyle='#bf7544';ctx.strokeRect(w.x+3,w.y+3,w.w-6,w.h-6);
+            ctx.beginPath();ctx.moveTo(w.x+2,w.y+w.h/2);ctx.lineTo(w.x+w.w-2,w.y+w.h/2);ctx.stroke();
+          } else if(w.type==='steel'){
+            const g=ctx.createLinearGradient(w.x,w.y,w.x+w.w,w.y+w.h);g.addColorStop(0,'#89978c');g.addColorStop(.5,'#3b4a40');g.addColorStop(1,'#b1bcae');ctx.fillStyle=g;ctx.fillRect(w.x+1,w.y+1,w.w-2,w.h-2);ctx.strokeStyle='#d4ddd3';ctx.strokeRect(w.x+5,w.y+5,w.w-10,w.h-10);
+          } else { ctx.fillStyle='#123b4b';ctx.fillRect(w.x,w.y,w.w,w.h);ctx.strokeStyle='#2b7182';for(let i=5;i<w.w;i+=9){ctx.beginPath();ctx.moveTo(w.x+i,w.y+4);ctx.lineTo(w.x+i-4,w.y+w.h-4);ctx.stroke();} }
+        });
+
+        const bx=12*TILE,by=19*TILE;
+        ctx.fillStyle=baseAlive?'#f4c64e':'#3a3020';ctx.fillRect(bx+6,by+5,TILE*2-12,TILE-5);ctx.fillStyle='#101710';ctx.beginPath();ctx.moveTo(W/2,by+7);ctx.lineTo(W/2+9,by+17);ctx.lineTo(W/2,by+24);ctx.lineTo(W/2-9,by+17);ctx.closePath();ctx.fill();
+        if(player) drawTank(player); enemies.forEach(drawTank);
+        ctx.fillStyle=COLORS.bullet; bullets.forEach(b=>{ctx.fillRect(b.x,b.y,b.w,b.h);ctx.fillStyle='rgba(255,242,187,.25)';ctx.fillRect(b.x-b.vx*.018,b.y-b.vy*.018,b.w,b.h);ctx.fillStyle=COLORS.bullet;});
+        particles.forEach(p=>{ctx.globalAlpha=clamp(p.life/p.max,0,1);ctx.fillStyle=p.color;ctx.fillRect(p.x,p.y,p.size,p.size);});ctx.globalAlpha=1;
+        ctx.restore();
+      }
+
+      function updateUI(radar=true){
+        ui.score.textContent=pad(score,6); ui.lives.textContent=lives; ui.level.textContent=pad(level); ui.remaining.textContent=Math.max(0,waveCount-kills); ui.stateText.textContent=paused?'暂停':running?'交战':'待命'; ui.baseSignal.textContent=baseAlive?'稳定':'失联';
+        if(radar){ ui.radarDots.innerHTML=enemies.map(e=>`<i class="dot" style="left:${(e.x/W)*100}%;top:${(e.y/H)*100}%"></i>`).join(''); }
+      }
+
+      function loop(now){
+        if(!running) return; const dt=Math.min((now-last)/1000,.034); last=now; update(dt); draw(); if(running) requestAnimationFrame(loop);
+      }
+
+      addEventListener('keydown',e=>{
+        if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code))e.preventDefault();
+        if(e.code==='KeyP'&&!e.repeat)togglePause(); else if(e.code==='KeyR'&&!e.repeat)startGame(); else keys.add(e.code);
+      });
+      addEventListener('keyup',e=>keys.delete(e.code));
+      addEventListener('blur',()=>{keys.clear(); if(running)togglePause();});
+      document.querySelectorAll('[data-key]').forEach(btn=>{
+        const down=e=>{e.preventDefault();keys.add(btn.dataset.key);btn.classList.add('active');};
+        const up=e=>{e.preventDefault();keys.delete(btn.dataset.key);btn.classList.remove('active');};
+        btn.addEventListener('pointerdown',down);btn.addEventListener('pointerup',up);btn.addEventListener('pointercancel',up);btn.addEventListener('pointerleave',up);
+      });
+      ui.startBtn.onclick=startGame; reset(true); draw();
+    })();
+  </script>
+</body>
+</html>
